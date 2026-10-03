@@ -420,6 +420,13 @@ def _make_dialog_class():
             super().__init__(parent)
             self.viewport = viewport
             self.setWindowTitle(TITLE)
+            # Non-modal: orbit, pan and zoom the viewport while the dialog
+            # (and the preview) stays open. The objects to array are the
+            # ones selected when the dialog opened — clicking around in the
+            # viewport meanwhile does not change what gets copied.
+            self.setModal(False)
+            self.setAttribute(Qt.WA_DeleteOnClose, True)
+            self._sel = set(viewport.scene.selection)
             self.p = load_params()
             self.scale_m, self.ulabel = _unit()
             self._preview_cmd = None
@@ -541,10 +548,17 @@ def _make_dialog_class():
             mid.addWidget(dbox, 1)
             lay.addLayout(mid)
 
+            # Live-preview banner: impossible to miss while the preview runs.
+            self.pv_lbl = QLabel(self)
+            self.pv_lbl.setWordWrap(True)
+            self.pv_lbl.setVisible(False)
+            lay.addWidget(self.pv_lbl)
+
             # Buttons
             bl = QHBoxLayout()
             self.preview = QPushButton("Preview", self)
             self.preview.setCheckable(True)
+            self.preview.setMinimumWidth(130)
             self.preview.toggled.connect(self._preview_toggled)
             reset = QPushButton("Reset All Parameters", self)
             reset.clicked.connect(self._reset)
@@ -647,18 +661,62 @@ def _make_dialog_class():
             self._load_into_ui()
             self._changed()
 
+        _PV_ON = ("QPushButton { background: #2e9e4f; color: white; "
+                  "font-weight: bold; border: 1px solid #1f7a3a; "
+                  "border-radius: 3px; padding: 3px 8px; }")
+        _BANNER = {
+            "live": "background: #1f5f33; color: #e8ffe9;",
+            "busy": "background: #7a5a12; color: #fff6e0;",
+            "error": "background: #7a1f1f; color: #ffecec;",
+        }
+
+        def _banner(self, kind, text):
+            self.pv_lbl.setStyleSheet(
+                self._BANNER[kind] + " padding: 6px 8px; border-radius: 3px;")
+            self.pv_lbl.setText(text)
+            self.pv_lbl.setVisible(True)
+
+        def _style_preview(self, on):
+            if on:
+                self.preview.setText("● Live Preview ON")
+                self.preview.setStyleSheet(self._PV_ON)
+                self.preview.setToolTip(
+                    "The preview follows every change by itself — "
+                    "click to switch it off.")
+            else:
+                self.preview.setText("Preview")
+                self.preview.setStyleSheet("")
+                self.preview.setToolTip(
+                    "Show the array in the model; it then updates by "
+                    "itself on every change.")
+                self.pv_lbl.setVisible(False)
+            if self.isVisible():
+                QTimer.singleShot(0, self.adjustSize)
+
         def _changed(self, *_a):
             if self._busy:
                 return
             self._read_ui()
             self._sync()
             if self.preview.isChecked():
+                self._banner("busy", "⟳ Updating the preview…")
                 self._timer.start()
 
         def _reset(self):
             self.p = default_params()
             self._load_into_ui()
             self._changed()
+
+        # ---- the objects to array ------------------------------------------
+        def _restore_selection(self) -> bool:
+            """Put the dialog's objects back into the selection (those that
+            still exist). False when none is left."""
+            scene = self.viewport.scene
+            alive = set(scene.groups) | set(scene.mesh.faces) | set(scene.mesh.edges)
+            sel = {e for e in self._sel if e in alive}
+            scene.selection.clear()
+            scene.selection.update(sel)
+            return bool(sel)
 
         # ---- preview -----------------------------------------------------
         def _undo_preview(self):
@@ -679,15 +737,38 @@ def _make_dialog_class():
 
         def _refresh_preview(self):
             self._undo_preview()
-            if not self.preview.isChecked() or self._too_many():
+            if not self.preview.isChecked():
+                return
+            if self._too_many():
+                self._banner(
+                    "error", f"Preview paused — Total in Array is "
+                    f"{total_in_array(self.p):,}, more than {MAX_OBJECTS:,}. "
+                    "Reduce the counts.")
+                return
+            self._banner("busy", "⟳ Updating the preview…")
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
+            if not self._restore_selection():
+                self._banner("error", "The objects to array are gone "
+                             "(deleted or undone). Close and select again.")
                 return
             try:
                 self._preview_cmd = run_array(self.viewport, self.p)
             except Exception as exc:          # never leave half an array
                 self._preview_cmd = None
-                self.viewport.flash_status(f"Array: {exc}", 6000)
+                self._banner("error", f"Preview failed: {exc}")
+                return
+            if self._preview_cmd is None:
+                self._banner("live", "● <b>LIVE PREVIEW</b> — nothing to "
+                             "copy yet (Total in Array is 1).")
+            else:
+                self._banner(
+                    "live",
+                    f"● <b>LIVE PREVIEW</b> — {self._preview_cmd.copies:,} "
+                    f"copies · changes apply instantly")
 
         def _preview_toggled(self, on):
+            self._style_preview(on)
             if on:
                 self._refresh_preview()
             else:
@@ -706,6 +787,10 @@ def _make_dialog_class():
             self._timer.stop()
             self._undo_preview()
             save_params(self.p)
+            if not self._restore_selection():
+                QMessageBox.warning(self, TITLE, "The objects to array are "
+                                    "gone (deleted or undone).")
+                return
             try:
                 cmd = run_array(self.viewport, self.p)
             except Exception as exc:
@@ -727,6 +812,7 @@ def _make_dialog_class():
 
 
 _DIALOG_CLASS = None
+_OPEN = None
 
 
 def show_array_dialog(viewport, parent=None) -> None:
@@ -742,8 +828,16 @@ def show_array_dialog(viewport, parent=None) -> None:
         return
     if _DIALOG_CLASS is None:
         _DIALOG_CLASS = _make_dialog_class()
+    global _OPEN
+    if _OPEN is not None:
+        try:
+            _OPEN.reject()
+        except RuntimeError:            # already closed and deleted
+            pass
     dlg = _DIALOG_CLASS(viewport, parent or viewport.window())
-    dlg.exec()
+    _OPEN = dlg
+    dlg.show()
+    dlg.raise_()
 
 
 def setup(app) -> None:
