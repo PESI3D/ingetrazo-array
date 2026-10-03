@@ -28,3 +28,6 @@ Requires IngeTrazo ≥ 0.5 (extension API 2).
 
 ## Licence
 GPL-3.0-or-later · © 2026 Pesi (pesi3d.de)
+
+---
+*3ds Max is a registered trademark of Autodesk, Inc. This plugin is not affiliated with or endorsed by Autodesk.*

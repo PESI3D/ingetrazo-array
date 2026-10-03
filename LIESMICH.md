@@ -23,3 +23,6 @@ Voraussetzung: IngeTrazo ≥ 0.5 (Extension-API 2).
 - Lose Geometrie (Flächen/Kanten) wird immer kopiert; **Instance** wirkt nur auf Gruppen/Components – eine klassische Gruppe wird dabei zuerst in eine Component umgewandelt.
 - Scale wird linear pro Kopie aufaddiert (110 % → 110, 120, 130 %) und um den eigenen Bezugspunkt des Objekts skaliert; Rotation um das gewählte Center.
 - Rotationsreihenfolge X → Y → Z (Weltachsen).
+
+---
+*3ds Max ist eine eingetragene Marke von Autodesk, Inc. Dieses Plugin steht in keiner Verbindung zu Autodesk und wird nicht von Autodesk unterstützt.*
