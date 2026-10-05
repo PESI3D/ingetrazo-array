@@ -27,6 +27,7 @@ Requires IngeTrazo ≥ 0.5 (extension API 2).
 - Rotation order X → Y → Z (world axes).
 
 ## Changelog
+- **1.2** — own toolbar **Array** with one icon per command (Array…). It starts on a row of its own under the built-in toolbars; move, float or hide it like those (right-click on a toolbar). Icons drawn in IngeTrazo's own style, they follow the light/dark theme.
 - **1.1** — clear live-preview indicator: green button, status line (live / updating / paused or failed), preview pause shown when Total in Array exceeds 20,000; the dialog no longer blocks the viewport — orbit, pan and zoom during the preview (the objects selected at opening are the ones copied).
 - **1.0** — first release.
 

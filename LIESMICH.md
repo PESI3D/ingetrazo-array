@@ -18,6 +18,7 @@ Voraussetzung: IngeTrazo ≥ 0.5 (Extension-API 2).
 - Move-Werte in der Dokumenteinheit (m / cm / mm …).
 
 ## Versionen
+- **1.2** — eigene Werkzeugleiste **Array** mit einem Icon je Befehl (Array…). Sie erscheint in einer eigenen Zeile unter den eingebauten Leisten und lässt sich wie diese verschieben, abdocken oder ausblenden (Rechtsklick auf eine Leiste). Icons im Stil von IngeTrazo, passend zum hellen/dunklen Theme.
 - **1.1** — deutliche Live-Preview-Anzeige: grüner Button, Statuszeile (live / aktualisiert / pausiert oder Fehler), Hinweis wenn Total in Array über 20.000 liegt; der Dialog blockiert den Viewport nicht mehr — Orbit, Pan und Zoom während der Vorschau (kopiert werden die beim Öffnen gewählten Objekte).
 - **1.0** — erste Veröffentlichung.
 

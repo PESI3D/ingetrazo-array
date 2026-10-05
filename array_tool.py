@@ -839,6 +839,167 @@ def show_array_dialog(viewport, parent=None) -> None:
     dlg.show()
     dlg.raise_()
 
+# ---------------------------------------------------------------------------
+# Toolbar (PESI3D): icons drawn in IngeTrazo's own icon style
+# ---------------------------------------------------------------------------
+
+def _pesi3d_icons():
+    """Icon key → draw(painter, ink, accent) on a 48 px canvas."""
+    import math  # noqa: F401
+    from PySide6.QtCore import QPointF, QRectF, Qt  # noqa: F401
+    from PySide6.QtGui import (QBrush, QColor, QPainterPath, QPen,  # noqa: F401
+                               QPolygonF)
+
+    def _a(c, alpha):
+        return QColor(c.red(), c.green(), c.blue(), alpha)
+
+    def array_icon(p, ink, acc):
+        # Original (accent) and two copies — each moved, turned and scaled
+        # a little more, as the Array dialog's 1D row does.
+        p.save()
+        p.setBrush(_a(acc, 170))
+        p.drawRect(QRectF(7, 26, 14, 14))
+        p.restore()
+        for cx, cy, s, ang in ((25.5, 25.5, 11.0, 15), (36.5, 13.5, 8.0, 30)):
+            p.save()
+            p.translate(cx, cy)
+            p.rotate(ang)
+            p.setBrush(Qt.NoBrush)
+            p.drawRect(QRectF(-s / 2, -s / 2, s, s))
+            p.restore()
+
+    return {"array": array_icon}
+
+
+def _pesi3d_toolbar(app, title, entries):
+    """A toolbar of this plugin's own — one icon per command (PESI3D).
+
+    ``entries`` = (icon key, text, tip, callable). The icons are drawn
+    like IngeTrazo's own (views/icons.py: 48 px, ink = the palette's text
+    colour, 3 px pen, the orange accent) and redrawn when the theme flips.
+    The toolbar moves, floats and hides like the built-in ones (right-click
+    on any toolbar); its place is kept by its objectName."""
+    try:
+        from PySide6.QtCore import QEvent, QObject, QSize, Qt
+        from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
+        from PySide6.QtWidgets import QApplication, QToolBar
+    except Exception:  # noqa: BLE001 — no Qt, no toolbar
+        return None
+    win = getattr(app, "window", None)
+    if win is None:
+        return None
+    draws = _pesi3d_icons()
+
+    def make_icon(key):
+        draw = draws.get(key)
+        if draw is None:
+            return QIcon()
+        qa = QApplication.instance()
+        ink = (QColor(qa.palette().windowText().color()) if qa is not None
+               else QColor(40, 44, 52))
+        pm = QPixmap(48, 48)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        pen = QPen(ink, 3.0)
+        pen.setJoinStyle(Qt.RoundJoin)
+        pen.setCapStyle(Qt.RoundCap)
+        p.setPen(pen)
+        try:
+            draw(p, ink, QColor(243, 115, 41))
+        finally:
+            p.end()
+        return QIcon(pm)
+
+    name = f"pesi3d_{getattr(app, 'key', title)}"
+    tb = None
+    make = getattr(win, "_new_toolbar", None)     # the host's own builder
+    if callable(make):
+        try:
+            tb = make(title, name)
+        except Exception:  # noqa: BLE001
+            tb = None
+    if tb is None:
+        tb = QToolBar(title, win)
+        tb.setObjectName(name)
+        tb.setMovable(True)
+        tb.setFloatable(True)
+        try:
+            from views.icons import toolbar_icon_px
+            px = int(toolbar_icon_px())
+        except Exception:  # noqa: BLE001
+            px = 24
+        tb.setIconSize(QSize(px, px))
+        tb.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        win.addToolBar(Qt.TopToolBarArea, tb)
+
+    actions = []
+    for key, text, tip, fn in entries:
+        act = QAction(make_icon(key), text, tb)
+        act.setToolTip(f"{text}\n{tip}" if tip else text)
+        if tip:
+            act.setStatusTip(tip)
+        act.triggered.connect(lambda _c=False, f=fn: f())
+        tb.addAction(act)
+        actions.append((act, key))
+
+    class _ThemeWatch(QObject):
+        def eventFilter(self, obj, event):  # noqa: N802 — Qt override
+            if event.type() in (QEvent.PaletteChange,
+                                QEvent.ApplicationPaletteChange,
+                                QEvent.StyleChange):
+                for a, k in actions:
+                    a.setIcon(make_icon(k))
+            return False
+
+    watch = _ThemeWatch(tb)
+    tb.installEventFilter(watch)
+    tb._pesi3d_watch = watch
+    _pesi3d_place_later(win)
+    return tb
+
+
+def _pesi3d_place_later(win):
+    """A toolbar the saved window layout does not know yet lands at the end
+    of the top row, squeezed behind the built-in ones. Once the window is
+    laid out, put new PESI3D toolbars on a row of their own under the
+    built-in ones — only the first time each one appears; after that the
+    user's own arrangement (saved with the window) wins. Every PESI3D
+    plugin carries this code; the first one to get here does it for all."""
+    if getattr(win, "_pesi3d_place_pending", False):
+        return
+    win._pesi3d_place_pending = True
+    from PySide6.QtCore import QSettings, Qt, QTimer
+    from PySide6.QtWidgets import QToolBar
+
+    def place():
+        win._pesi3d_place_pending = False
+        try:
+            st = QSettings()
+            key = "plugins/pesi3d/placed_toolbars"
+            placed = st.value(key) or []
+            if isinstance(placed, str):
+                placed = [placed]
+            placed = list(placed)
+            bars = [t for t in win.findChildren(QToolBar)
+                    if t.objectName().startswith("pesi3d_")]
+            new = [t for t in bars if t.objectName() not in placed]
+            if not new:
+                return
+            fresh = not placed            # no PESI3D row yet → open one
+            for i, t in enumerate(sorted(new, key=lambda t: t.objectName())):
+                shown = not t.isHidden()
+                win.removeToolBar(t)
+                if fresh and i == 0:
+                    win.addToolBarBreak(Qt.TopToolBarArea)
+                win.addToolBar(Qt.TopToolBarArea, t)
+                t.setVisible(shown)
+            st.setValue(key, placed + [t.objectName() for t in new])
+        except Exception:  # noqa: BLE001 — layout only, never break the app
+            pass
+
+    QTimer.singleShot(0, place)
+
 
 def setup(app) -> None:
     """Extensions ▸ Array…  and right-click ▸ Array… on a selection."""
@@ -857,3 +1018,9 @@ def setup(app) -> None:
             0, lambda: show_array_dialog(app.viewport, app.window)))
 
     app.add_context_menu(context)
+
+    _pesi3d_toolbar(app, TITLE, [
+        ("array", "Array…",
+         "Copies of the selection in 1D, 2D or 3D with move, rotate and scale per copy.",
+         lambda: show_array_dialog(app.viewport, app.window)),
+    ])
