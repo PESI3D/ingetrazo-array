@@ -26,7 +26,8 @@ The whole array is ONE undo step. Settings are remembered between runs.
 
 Install: copy this file into the plugins folder
 (Extensions ▸ Open plugins folder; on Windows %APPDATA%\\ingetrazo\\plugins)
-and restart IngeTrazo. Needs IngeTrazo ≥ 0.5 (extension API 2).
+and restart IngeTrazo. Needs IngeTrazo ≥ 0.5.6 (extension API 2);
+tested with IngeTrazo 0.5.8.
 """
 from __future__ import annotations
 
@@ -35,6 +36,7 @@ import math
 
 KEY = "array_tool"
 TITLE = "Array"
+VERSION = "1.2.1"
 SETTINGS_KEY = "plugins/array_tool/params"
 MAX_OBJECTS = 20000          # safety net: Total in Array above this is refused
 
@@ -419,7 +421,7 @@ def _make_dialog_class():
         def __init__(self, viewport, parent=None):
             super().__init__(parent)
             self.viewport = viewport
-            self.setWindowTitle(TITLE)
+            self.setWindowTitle(f"{TITLE} {VERSION}")
             # Non-modal: orbit, pan and zoom the viewport while the dialog
             # (and the preview) stays open. The objects to array are the
             # ones selected when the dialog opened — clicking around in the

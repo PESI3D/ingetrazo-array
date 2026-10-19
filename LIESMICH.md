@@ -5,7 +5,7 @@
 2. `array_tool.py` dort hineinkopieren.
 3. IngeTrazo neu starten → **Extensiones ▸ Array…** bzw. Rechtsklick ▸ **Array…**
 
-Voraussetzung: IngeTrazo ≥ 0.5 (Extension-API 2).
+Voraussetzung: IngeTrazo ≥ 0.5.6 (Extension-API 2) · getestet mit IngeTrazo 0.5.8.
 
 ## Funktionen
 - **Move / Rotate / Scale** je Achse, pro Zeile **Incremental** oder **Totals** (Buttons `<` / `>`); die inaktive Seite zeigt den berechneten Wert.
@@ -18,6 +18,7 @@ Voraussetzung: IngeTrazo ≥ 0.5 (Extension-API 2).
 - Move-Werte in der Dokumenteinheit (m / cm / mm …).
 
 ## Versionen
+- **1.2.1** — getestet mit IngeTrazo 0.5.8; die Version steht im Dialogtitel.
 - **1.2** — eigene Werkzeugleiste **Array** mit einem Icon je Befehl (Array…). Sie erscheint in einer eigenen Zeile unter den eingebauten Leisten und lässt sich wie diese verschieben, abdocken oder ausblenden (Rechtsklick auf eine Leiste). Icons im Stil von IngeTrazo, passend zum hellen/dunklen Theme.
 - **1.1** — deutliche Live-Preview-Anzeige: grüner Button, Statuszeile (live / aktualisiert / pausiert oder Fehler), Hinweis wenn Total in Array über 20.000 liegt; der Dialog blockiert den Viewport nicht mehr — Orbit, Pan und Zoom während der Vorschau (kopiert werden die beim Öffnen gewählten Objekte).
 - **1.0** — erste Veröffentlichung.
